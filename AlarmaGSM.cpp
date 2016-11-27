@@ -21,13 +21,14 @@
 #include "password_manager.h"
 
 #define	DEBUG	1
+#define GSMSMS	0
 
 #include "lib/keypad/keypad.h"
 #include "lib/eeprom/eeprom.h"
 #include "lib/timer/timer.h"
 //#include "lib/usart/usart.h"
 #include "lib/sound/sound.h"
-#include "lib/myGSM/MyGSM.h"
+
 
 #ifdef portHD44780_LCD
 /* LCD (Freetronics 16x2) interface include file. */
@@ -46,7 +47,8 @@ static uint16_t pass_save = 254;
 static uint16_t password = 255;
 static int8_t taskAlarm = 0;
 static uint8_t martor = 0;
-
+unsigned long tmr_millis = 0; //, time for delay action ;
+unsigned long curet_milles = 0;
 extern uint8_t armat;
 extern uint8_t alarm;
 
@@ -58,12 +60,16 @@ static void TaskSemnale(); // actiuni alarma
 
 static void SystemInit();
 
+#ifdef GSMSMS
+#include "lib/myGSM/MyGSM.h"
 GSM gsm;		//gsm handler class define in cmd.cpp
 char number[20];
 byte sms_p;
 int Check_SMS();
 void InfoSMS(char* info);
 #define time_base			10000				// Time cycle in milliseconds, 10s
+#endif
+
 
 //The setup function is called once at startup of the sketch
 void setup()
@@ -87,7 +93,7 @@ void loop()
 
 	TaskSemnale();
 	//_delay_ms(10);
-
+#ifdef GSMSMS
 	unsigned long tmr_fast = 0; //, tmr_slow=0;
 
 	if ((millis() - tmr_fast) > time_base)
@@ -96,6 +102,7 @@ void loop()
 		Check_SMS();
 
 	}
+#endif
 	wdt_reset();
 
 }
@@ -152,7 +159,7 @@ static void TaskAlarma()
 	static int8_t changepas = 0;
 
 	//Match Password
-	contor_s = 0;
+	contor_s = 1;
 
 	if ((password == pass_save) && !changepas)
 	{
@@ -171,11 +178,13 @@ static void TaskAlarma()
 			Serial.println("Dezarmat!");
 #endif
 			password = 255;
+#ifdef GSMSMS
 			if (sms_p)
 			{
 				gsm.SendSMS(number, "Dezarmat!");
 				sms_p = 0;
 			}
+#endif
 		}
 		else
 		{
@@ -184,23 +193,27 @@ static void TaskAlarma()
 #endif
 			//while (GetSeconds() - time_sst < 15);
 			//vTaskDelayUntil( &xLastWakeTime, ( 15000 / portTICK_PERIOD_MS ) );
-			while (contor_s < 30) //weit 15s
-			{
-				playFrequency(5230, 100); // ok tone
-				wdt_reset();
-				_delay_ms(500);
-			}
+			/*
+			 while (contor_s < 30) //weit 15s
+			 {
+			 playFrequency(5230, 100); // ok tone
+			 _delay_ms(500);
+			 }
+			 */
 			//playFrequency( 150, 50); // armare tone
 			//OSGiveSema(&sema_senzor);
 			ALARMOff();
 			//wdt_reset();
 			ARMOn();
 			password = 255;
+#ifdef GSMSMS
 			if (sms_p)
 			{
 				gsm.SendSMS(number, ("Armat!"));
 				sms_p = 0;
 			}
+#endif
+			tmr_millis = millis();
 		}
 
 	}
@@ -237,7 +250,9 @@ static void TaskAlarma()
 #endif
 				char buffer[32];
 				sprintf_P(buffer, PSTR("Parola schimbata: %d"), pass_save);
+#ifdef GSMSMS
 				InfoSMS(buffer);
+#endif
 				changepas = 0;
 				passOK = 0;
 				return;
@@ -283,17 +298,27 @@ static void TaskSenzorR()
 
 	if (armat && !alarm)
 	{
-		if ((PIND & (1 << PD4)) || (PIND & (1 << PD5)))
+		if ((millis() - tmr_millis) > 30 * 1000)
 		{
-			Serial.println(F("Senzor rapid activat"));
-			ALARMOn();
-			contor_m = 0;
-			//senzor_pull = 1;
-			martor = 1;
-			char buffer[32];
-			sprintf_P(buffer, PSTR("Sirena pornita R"));
-			Serial.println(buffer);
-			InfoSMS(buffer);
+			if ((PIND & (1 << PD4)) || (PIND & (1 << PD5)))
+			{
+				Serial.println(F("Senzor rapid activat"));
+				ALARMOn();
+				contor_m = 0;
+				//senzor_pull = 1;
+				martor = 1;
+				char buffer[32];
+				sprintf_P(buffer, PSTR("Sirena pornita R"));
+				Serial.println(buffer);
+#ifdef GSMSMS
+				InfoSMS(buffer);
+#endif
+			}
+		}
+		else if ((millis() - curet_milles) > 1000)
+		{
+			playFrequency(1500, 50);
+			curet_milles = millis();
 		}
 	}
 	/*
@@ -324,40 +349,45 @@ static void TaskSenzorL()
 	static int8_t senzorL = 0;
 	if (armat && !alarm)
 	{
-		if ((SENZOR_PINS & (1 << SENZOR_PIN)) && !senzorL) //(PIND & (1 << PD2)) == 1)
+		if ((millis() - tmr_millis) > 30 * 1000)
 		{
-			Serial.println(F("Senzor intarziat activat"));
-			contor_s = 0;
-			senzorL = 1;
-			for (uint8_t n = 0; n < 15; ++n)
+			if ((SENZOR_PINS & (1 << SENZOR_PIN)) && !senzorL) //(PIND & (1 << PD2)) == 1)
 			{
-				playFrequency(1500, 50);
-				_delay_ms(500);
+				Serial.println("Senzor intarziat activat");
+				contor_s = 1;
+				senzorL = 1;
 			}
-			//playFrequency( 1500, 50); // senzor activ tone
-			//while (contor_s < 12)
-			//;
-			//vTaskDelayUntil(&xLastWakeTime, (500 / portTICK_PERIOD_MS));
-
 		}
 	}
 
-	if (senzorL && (contor_s % 20 == 0))
+	if (senzorL && armat)
 	{
-		senzorL = 0;
-		if (armat && !alarm)
+		if ((millis() - curet_milles) > 1000)
 		{
-			ALARMOn();
-			contor_m = 0;
-			martor = 2;
-			//Serial.println("Sirena pornita senzorL");
-			char buffer[32];
-			sprintf_P(buffer, PSTR("Sirena pornita L"));
-			Serial.println(buffer);
-			InfoSMS(buffer);
+			playFrequency(1500, 50);
+			curet_milles = millis();
 
 		}
+		if (contor_s % 20 == 0)
+		{
+			senzorL = 0;
+			if (!alarm)
+			{
+				ALARMOn();
+				contor_m = 0;
+				martor = 2;
+				//Serial.println("Sirena pornita senzorL");
+				char buffer[32];
+				sprintf_P(buffer, PSTR("Sirena pornita L"));
+				Serial.println(buffer);
+#ifdef GSMSMS
+				InfoSMS(buffer);
+#endif
+			}
+		}
 	}
+	else
+		senzorL = 0;
 
 #ifdef portHD44780_LCD
 	lcd_Locate (0, 0);
@@ -381,11 +411,11 @@ static void TaskSemnale() // actiouni alarma
 
 	//senzor activat = led armare trece pe intermitent
 	if ((martor == 1) && (contor_s % 2 == 1))
-		ARMLED_PORT &= ~(1 << ARMLED_PIN);			//sting ledul
+		ARMLED_PORT &= ~(1 << ARMLED_PIN); //sting ledul
 	else if ((martor == 2) && (contor_s % 3 == 0))
-		ARMLED_PORT &= ~(1 << ARMLED_PIN);			//sting ledul
+		ARMLED_PORT &= ~(1 << ARMLED_PIN); //sting ledul
 	if (((martor == 1) || (martor == 2)) && (contor_s % 2 == 0))
-		ARMLED_PORT |= (1 << ARMLED_PIN);			//aprind ledul
+		ARMLED_PORT |= (1 << ARMLED_PIN); //aprind ledul
 
 	if (!armat)
 	{
@@ -400,7 +430,9 @@ static void TaskSemnale() // actiouni alarma
 		char buffer[32];
 		sprintf_P(buffer, PSTR("Sirena oprita"));
 		Serial.println(buffer);
+#ifdef GSMSMS
 		InfoSMS(buffer);
+#endif
 	}
 
 }
@@ -419,7 +451,7 @@ static void SystemInit()
 	//USARTInit(8); //bud rate 115200
 	Serial.begin(115200);
 	delay(100);
-	Serial.println(F("system startup")); // Ok, so we're alive...
+	Serial.println(F("system startup"));	// Ok, so we're alive...
 
 #ifdef	portHD44780_LCD
 	lcd_Init();
@@ -454,8 +486,9 @@ static void SystemInit()
 
 	pass_save = ReadPassFromEEPROM();
 	//wdt_enable(WDTO_1S);
+#ifdef GSMSMS
 	sms_p = 0;
-	gsm.TurnOn(9600);       //module power on
+	gsm.TurnOn(9600);	//module power on
 	if (gsm.SendATCmdWaitResp("AT", 500, 100, "OK", 5) == AT_RESP_OK)
 	{
 		gsm.InitParam(PARAM_SET_1);		//configure the module
@@ -470,23 +503,23 @@ static void SystemInit()
 	uint8_t nr_pfonnr = 0;	//hold number of phone number on sim
 	//char number[20];
 	for (byte i = 1; i < 7; i++)
-		if (gsm.GetPhoneNumber(i, number) == 1) //Find number in specified position
+		if (gsm.GetPhoneNumber(i, number) == 1)	//Find number in specified position
 			++nr_pfonnr;
 
 	Serial.println(nr_pfonnr);
-
+#endif
 	ARMOn();
 
 	wdt_enable(WDTO_8S);
 }
 
 /*-----------------------------------------------------------*/
-
+#ifdef GSMSMS
 int Check_SMS()
 {
 	int id = 0;			//error from function
 	//char str[200];
-	int pos_sms_rx = -1;  //Received SMS position
+	int pos_sms_rx = -1;	//Received SMS position
 	char sms_rx[255];
 	pos_sms_rx = gsm.IsSMSPresent(SMS_ALL);
 	//Serial.println(pos_sms_rx);
@@ -507,7 +540,7 @@ int Check_SMS()
 			if (strcmp("ada21", sms_rx) == 0)
 			{
 				//write number on sim
-				uint8_t nr_pfonnr = 1;	//hold number of phone number on sim
+				uint8_t nr_pfonnr = 1;		//hold number of phone number on sim
 				char tmpnr[20];
 				for (byte i = 1; i < 7; i++)
 				{
@@ -575,3 +608,4 @@ void InfoSMS(char* info)
 	}
 
 }
+#endif
