@@ -48,7 +48,7 @@ static uint16_t password = 255;
 static int8_t taskAlarm = 0;
 static uint8_t martor = 0;
 unsigned long tmr_millis = 0; //, time for delay action ;
-unsigned long curet_milles = 0;
+unsigned long curet_milles = 500;
 extern uint8_t armat;
 extern uint8_t alarm;
 
