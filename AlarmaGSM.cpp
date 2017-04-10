@@ -181,7 +181,8 @@ static void TaskAlarma()
 #ifdef GSMSMS
 			if (sms_p)
 			{
-				gsm.SendSMS(number, "Dezarmat!");
+				//gsm.SendSMS(number, "Dezarmat!");
+				InfoSMS("Dezarmat");
 				sms_p = 0;
 			}
 #endif
@@ -209,7 +210,8 @@ static void TaskAlarma()
 #ifdef GSMSMS
 			if (sms_p)
 			{
-				gsm.SendSMS(number, ("Armat!"));
+				//gsm.SendSMS(number, ("Armat!"));
+				InfoSMS("Armat");
 				sms_p = 0;
 			}
 #endif
@@ -268,6 +270,10 @@ static void TaskAlarma()
 #ifdef DEBUG
 			Serial.println("Parola neschimbata");
 #endif
+#ifdef GSMSMS
+				InfoSMS((char*)"Parola neschimbata");
+#endif
+
 
 			//playFrequency( 2500, 500); // notOK tone
 			taskAlarm = 0;
@@ -592,6 +598,28 @@ int Check_SMS()
 			password = atol(sms_rx);
 			taskAlarm = 1;
 			sms_p = 1;
+
+			if (strcmp("DEL", sms_rx) == 0)
+			{
+				byte i = 1;
+				//int error = 0;
+				for (i = 1; i < 7; i++)
+					if (gsm.ComparePhoneNumber(i, number) == 1)
+						break;
+				if (i < 7)
+				{
+					if (0 != gsm.DelPhoneNumber(i))
+					{
+						gsm.SendSMS(number, "Sters");
+					}
+					else
+					{
+						//strcpy_P(buffer, PSTR("Ne Sters"));
+						gsm.SendSMS(number, "Ne sters");
+					}
+				}
+
+			}
 		}
 	}
 	return pos_sms_rx;
