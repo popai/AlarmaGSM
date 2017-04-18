@@ -64,7 +64,7 @@ static void SystemInit();
 #include "lib/myGSM/MyGSM.h"
 GSM gsm;		//gsm handler class define in cmd.cpp
 char number[20];
-byte sms_p;
+//byte sms_p;
 int Check_SMS();
 void InfoSMS(char* info);
 #define time_base			10000				// Time cycle in milliseconds, 10s
@@ -179,12 +179,12 @@ static void TaskAlarma()
 #endif
 			password = 255;
 #ifdef GSMSMS
-			if (sms_p)
-			{
+//			if (sms_p)
+	//		{
 				//gsm.SendSMS(number, "Dezarmat!");
-				InfoSMS("Dezarmat");
-				sms_p = 0;
-			}
+				InfoSMS((char*)"Dezarmat");
+		//		sms_p = 0;
+			//}
 #endif
 		}
 		else
@@ -208,12 +208,12 @@ static void TaskAlarma()
 			ARMOn();
 			password = 255;
 #ifdef GSMSMS
-			if (sms_p)
-			{
+//			if (sms_p)
+	//		{
 				//gsm.SendSMS(number, ("Armat!"));
 				InfoSMS("Armat");
-				sms_p = 0;
-			}
+		//		sms_p = 0;
+			//}
 #endif
 			tmr_millis = millis();
 		}
@@ -309,16 +309,17 @@ static void TaskSenzorR()
 			if ((PIND & (1 << PD4)) || (PIND & (1 << PD5)))
 			{
 				Serial.println(F("Senzor rapid activat"));
-				ALARMOn();
-				contor_m = 0;
-				//senzor_pull = 1;
-				martor = 1;
 				char buffer[32];
 				sprintf_P(buffer, PSTR("Sirena pornita R"));
 				Serial.println(buffer);
 #ifdef GSMSMS
 				InfoSMS(buffer);
 #endif
+
+				ALARMOn();
+				contor_m = 0;
+				//senzor_pull = 1;
+				martor = 1;
 			}
 		}
 		else if ((millis() - curet_milles) > 1000)
@@ -379,16 +380,17 @@ static void TaskSenzorL()
 			senzorL = 0;
 			if (!alarm)
 			{
+				char buffer[32];
+				sprintf_P(buffer, PSTR("Sirena pornita L"));
+				Serial.println(buffer);
+
+#ifdef GSMSMS
+				InfoSMS(buffer);
+#endif
 				ALARMOn();
 				contor_m = 0;
 				martor = 2;
 				//Serial.println("Sirena pornita senzorL");
-				char buffer[32];
-				sprintf_P(buffer, PSTR("Sirena pornita L"));
-				Serial.println(buffer);
-#ifdef GSMSMS
-				InfoSMS(buffer);
-#endif
 			}
 		}
 	}
@@ -493,7 +495,7 @@ static void SystemInit()
 	pass_save = ReadPassFromEEPROM();
 	//wdt_enable(WDTO_1S);
 #ifdef GSMSMS
-	sms_p = 0;
+	//sms_p = 0;
 	gsm.TurnOn(9600);	//module power on
 	if (gsm.SendATCmdWaitResp("AT", 500, 100, "OK", 5) == AT_RESP_OK)
 	{
@@ -597,7 +599,7 @@ int Check_SMS()
 		{
 			password = atol(sms_rx);
 			taskAlarm = 1;
-			sms_p = 1;
+			//sms_p = 1;
 
 			if (strcmp("DEL", sms_rx) == 0)
 			{
