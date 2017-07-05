@@ -190,28 +190,17 @@ static void TaskAlarma()
 		else
 		{
 #ifdef DEBUG
-			Serial.println("Armeaza!");
+			Serial.println(F("Armeaza!"));
 #endif
-			//while (GetSeconds() - time_sst < 15);
-			//vTaskDelayUntil( &xLastWakeTime, ( 15000 / portTICK_PERIOD_MS ) );
-			/*
-			 while (contor_s < 30) //weit 15s
-			 {
-			 playFrequency(5230, 100); // ok tone
-			 _delay_ms(500);
-			 }
-			 */
-			//playFrequency( 150, 50); // armare tone
-			//OSGiveSema(&sema_senzor);
+
 			ALARMOff();
-			//wdt_reset();
 			ARMOn();
 			password = 255;
 #ifdef GSMSMS
 //			if (sms_p)
 	//		{
 				//gsm.SendSMS(number, ("Armat!"));
-				InfoSMS("Armat");
+				InfoSMS((char*)"Armat");
 		//		sms_p = 0;
 			//}
 #endif
@@ -227,7 +216,10 @@ static void TaskAlarma()
 		playFrequency(1500, 50); // armare tone
 
 #ifdef DEBUG
-		Serial.println("Schimba parola");
+		Serial.println(F("Schimba parola"));
+#endif
+#ifdef GSMSMS
+		InfoSMS((char*)"Schimba parola");
 #endif
 
 		taskAlarm = 0;
@@ -237,7 +229,10 @@ static void TaskAlarma()
 			//Allowed to change password
 			//password = 1234;
 #ifdef DEBUG
-			Serial.println("parola noua:");
+			Serial.println(F("parola noua:"));
+#endif
+#ifdef GSMSMS
+			InfoSMS((char*)"parola noua:");
 #endif
 			taskAlarm = 0;
 			if (password != 255 && password != 0 && passOK)
@@ -247,11 +242,12 @@ static void TaskAlarma()
 				Buzer_PassOK();
 				//playFrequency( 523, 150); // ok tone
 				pass_save = password;
-#ifdef DEBUG
-				Serial.println("Parola schimbata");
-#endif
 				char buffer[32];
 				sprintf_P(buffer, PSTR("Parola schimbata: %d"), pass_save);
+
+#ifdef DEBUG
+				Serial.println(buffer);
+#endif
 #ifdef GSMSMS
 				InfoSMS(buffer);
 #endif
@@ -268,7 +264,7 @@ static void TaskAlarma()
 			//Not Allowed to change password
 			Buzer_PassNotOK();
 #ifdef DEBUG
-			Serial.println("Parola neschimbata");
+			Serial.println(F("Parola neschimbata"));
 #endif
 #ifdef GSMSMS
 				InfoSMS((char*)"Parola neschimbata");
@@ -291,7 +287,7 @@ static void TaskAlarma()
 		{
 			//ARMOn();
 			ALARMOn();
-			Serial.println("Sirena pornita");
+			Serial.println(F("Sirena pornita"));
 			gresit = 0;
 			contor_m = 0;
 		}
@@ -516,6 +512,7 @@ static void SystemInit()
 
 	Serial.println(nr_pfonnr);
 #endif
+	InfoSMS((char*)("REPORNIT armat!"));
 	ARMOn();
 
 	wdt_enable(WDTO_8S);
